@@ -1,11 +1,60 @@
 # Snowbridge
 
+> **Work in progress:** Snowbridge is an early MVP under active development.
+> The mock backend is suitable for local API testing, but the planned Azure
+> architecture and real Snowflake integration are not yet production-ready.
+
 Snowbridge is a Python HTTP service that gives Azure Data Factory, Microsoft
 Fabric, Logic Apps, and other orchestrators one stable interface for controlled
 Snowflake operations.
 
 The first version runs against an in-process mock Snowflake adapter. The same API
 can later use the official Snowflake Python Connector by changing configuration.
+
+## Use Case
+
+Use native Azure Snowflake connectors for straightforward data copy operations.
+Use Snowbridge when several Azure workloads need a shared, governed integration
+layer for Snowflake operations, including:
+
+- Consistent authentication, validation, authorization, and auditing.
+- Allowlisted query templates or stored procedures instead of unrestricted SQL.
+- Idempotent, asynchronous jobs for long-running loads and exports.
+- Shared business rules and response contracts across Data Factory, Fabric, and
+	Logic Apps.
+- Controlled movement of large datasets through ADLS Gen2 or Blob Storage.
+
+## Planned Architecture
+
+```mermaid
+flowchart LR
+	A[Azure Data Factory] --> APIM[API Management]
+	F[Microsoft Fabric] --> APIM
+	L[Logic Apps] --> APIM
+
+	APIM --> API[Snowbridge API<br/>Azure Container Apps]
+	API --> Q[Service Bus Queue]
+	Q --> W[Snowbridge Worker<br/>Azure Container Apps]
+
+	API --> KV[Key Vault]
+	W --> KV
+	W --> S[(Snowflake)]
+	W <--> D[ADLS Gen2 or Blob Storage]
+
+	API --> O[Application Insights]
+	W --> O
+```
+
+The current container combines the HTTP API and synchronous in-memory job
+execution for local development. The planned Azure deployment separates the API
+from a background worker, queues long-running work through Service Bus, stores
+secrets in Key Vault, and sends telemetry to Application Insights. HTTP requests
+carry control information; large files move through Azure Storage rather than
+through API responses.
+
+The public REST contract is intended to remain stable as the mock adapter is
+replaced by a real Snowflake connection and the in-memory job runner is replaced
+by persistent, asynchronous processing.
 
 ## Current API
 
