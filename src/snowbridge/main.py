@@ -3,9 +3,21 @@ import logging
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
+from snowbridge.ai.catalog import OPERATION_CATALOG, validate_plan
+from snowbridge.ai.client import AiPlannerError
+from snowbridge.ai.factory import create_ai_planner
 from snowbridge.config import Settings, get_settings
 from snowbridge.jobs import JobStore
-from snowbridge.models import ConnectionStatus, HealthResponse, JobRequest, JobResponse
+from snowbridge.models import (
+    AiExecuteRequest,
+    AiPlanRequest,
+    AiPlanResponse,
+    ConnectionStatus,
+    HealthResponse,
+    JobRequest,
+    JobResponse,
+    PlanStatus,
+)
 from snowbridge.snowflake.client import (
     InvalidOperationParametersError,
     SnowflakeClientError,
@@ -24,6 +36,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = app_settings
     app.state.snowflake_client = create_snowflake_client(app_settings)
+    app.state.ai_planner = create_ai_planner(app_settings)
     app.state.job_store = JobStore()
 
     @app.exception_handler(InvalidOperationParametersError)
@@ -44,6 +57,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             content={"detail": str(exc)},
         )
 
+    @app.exception_handler(AiPlannerError)
+    async def ai_planner_error_handler(request: Request, exc: AiPlannerError) -> JSONResponse:
+        logger.warning("AI planner request failed", exc_info=exc)
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"detail": str(exc)},
+        )
+
     @app.get("/health", response_model=HealthResponse, tags=["health"])
     def health() -> HealthResponse:
         return HealthResponse(status="healthy", backend=app_settings.snowflake_backend)
@@ -51,6 +72,43 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/v1/snowflake/health", response_model=ConnectionStatus, tags=["snowflake"])
     def snowflake_health() -> ConnectionStatus:
         return app.state.snowflake_client.test_connection()
+
+    @app.get("/v1/ai/operations", tags=["ai"])
+    def list_ai_operations() -> list[dict[str, object]]:
+        return OPERATION_CATALOG
+
+    @app.post("/v1/ai/plan", response_model=AiPlanResponse, tags=["ai"])
+    def plan_operation(request: AiPlanRequest) -> AiPlanResponse:
+        return app.state.ai_planner.plan(request.request)
+
+    @app.post(
+        "/v1/ai/execute",
+        response_model=JobResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["ai"],
+    )
+    def execute_plan(request: AiExecuteRequest) -> JobResponse:
+        if not request.confirmed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Set confirmed to true before executing an AI-generated plan.",
+            )
+        if request.plan.status is not PlanStatus.READY:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only a ready plan can be executed.",
+            )
+        try:
+            plan = validate_plan(request.plan)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        assert plan.operation is not None
+        job_request = JobRequest(
+            operation=plan.operation,
+            parameters=plan.parameters,
+            idempotency_key=request.idempotency_key,
+        )
+        return app.state.job_store.submit(job_request, app.state.snowflake_client)
 
     @app.post(
         "/v1/jobs",

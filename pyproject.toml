@@ -16,6 +16,10 @@ dependencies = [
 
 [project.optional-dependencies]
 snowflake = ["snowflake-connector-python>=3.16,<5"]
+ai = [
+    "azure-identity>=1.25,<2",
+    "openai>=1.109,<3",
+]
 dev = [
     "httpx>=0.28,<1",
     "pytest>=8.4,<10",

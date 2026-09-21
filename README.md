@@ -8,6 +8,11 @@ Snowbridge is a Python HTTP service that gives Azure Data Factory, Microsoft
 Fabric, Logic Apps, and other orchestrators one stable interface for controlled
 Snowflake operations.
 
+Its governed AI planner uses Microsoft Foundry to translate natural-language
+requests into structured, allowlisted operations. Snowbridge validates the plan
+and requires explicit confirmation before execution; model-generated SQL is
+never accepted or run.
+
 The first version runs against an in-process mock Snowflake adapter. The same API
 can later use the official Snowflake Python Connector by changing configuration.
 
@@ -62,12 +67,16 @@ by persistent, asynchronous processing.
 - `GET /v1/snowflake/health`: adapter connectivity check.
 - `POST /v1/jobs`: execute an approved operation.
 - `GET /v1/jobs/{job_id}`: retrieve an in-memory job result.
+- `GET /v1/ai/operations`: list operations available to the AI planner.
+- `POST /v1/ai/plan`: translate natural language into a structured operation plan.
+- `POST /v1/ai/execute`: execute a validated plan after explicit confirmation.
 - `GET /docs`: interactive OpenAPI documentation.
 
-The MVP supports two allowlisted operations:
+The MVP supports three allowlisted operations:
 
 - `echo`: verifies parameter binding and result serialization.
 - `current_context`: returns account, user, role, and warehouse context.
+- `warehouse_usage_summary`: summarizes credits and metered hours for the last 1-90 days.
 
 Jobs execute synchronously in this first slice but use a job-shaped contract so
 queue-backed asynchronous execution can be added without changing callers.
@@ -106,6 +115,42 @@ Run checks:
 uv run --extra dev pytest
 uv run --extra dev ruff check .
 ```
+
+## AI Planner
+
+The default `mock` AI backend provides deterministic local demos without cloud
+credentials. Submit a natural-language request:
+
+```powershell
+$plan = Invoke-RestMethod `
+	-Method Post `
+	-Uri http://127.0.0.1:8000/v1/ai/plan `
+	-ContentType application/json `
+	-Body (@{ request = "Show warehouse usage for the last 14 days" } | ConvertTo-Json)
+
+$execution = @{
+	plan = $plan
+	confirmed = $true
+	idempotency_key = "ai-demo-14-days"
+} | ConvertTo-Json -Depth 5
+
+Invoke-RestMethod `
+	-Method Post `
+	-Uri http://127.0.0.1:8000/v1/ai/execute `
+	-ContentType application/json `
+	-Body $execution
+```
+
+To use Microsoft Foundry, install the AI dependencies and configure the model
+endpoint shown in `.env.example`:
+
+```powershell
+uv sync --extra dev --extra ai
+```
+
+Set `SNOWBRIDGE_AI_BACKEND=foundry`. When no API key is configured, Snowbridge
+uses `DefaultAzureCredential`, which supports Azure CLI credentials locally and
+managed identity in Azure.
 
 ## Docker
 

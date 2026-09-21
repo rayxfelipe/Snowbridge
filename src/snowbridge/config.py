@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     app_name: str = "Snowbridge"
     environment: str = "development"
     snowflake_backend: Literal["mock", "snowflake"] = "mock"
+    ai_backend: Literal["mock", "foundry"] = "mock"
+
+    foundry_endpoint: str | None = None
+    foundry_deployment: str = "gpt-4.1-mini"
+    foundry_api_version: str = "2025-04-01-preview"
+    foundry_api_key: SecretStr | None = None
 
     snowflake_account: str | None = None
     snowflake_user: str | None = None

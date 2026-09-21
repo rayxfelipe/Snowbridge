@@ -125,9 +125,26 @@ class RealSnowflakeClient:
                 )
             return "SELECT %(message)s AS MESSAGE", {"message": message}
 
+        if operation is OperationName.CURRENT_CONTEXT:
+            return (
+                "SELECT CURRENT_ACCOUNT() AS ACCOUNT_NAME, "
+                "CURRENT_USER() AS USER_NAME, CURRENT_ROLE() AS ROLE_NAME, "
+                "CURRENT_WAREHOUSE() AS WAREHOUSE_NAME",
+                {},
+            )
+
+        days = parameters.get("days")
+        if isinstance(days, bool) or not isinstance(days, int) or not 1 <= days <= 90:
+            raise InvalidOperationParametersError(
+                "Warehouse usage requires an integer days value from 1 through 90."
+            )
         return (
-            "SELECT CURRENT_ACCOUNT() AS ACCOUNT_NAME, "
-            "CURRENT_USER() AS USER_NAME, CURRENT_ROLE() AS ROLE_NAME, "
-            "CURRENT_WAREHOUSE() AS WAREHOUSE_NAME",
-            {},
+            "SELECT WAREHOUSE_NAME, ROUND(SUM(CREDITS_USED), 2) AS CREDITS_USED, "
+            "ROUND(SUM(DATEDIFF('millisecond', START_TIME, END_TIME)) / 3600000, 2) "
+            "AS METERED_HOURS, "
+            "%(days)s AS PERIOD_DAYS "
+            "FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY "
+            "WHERE START_TIME >= DATEADD(day, -%(days)s, CURRENT_TIMESTAMP()) "
+            "GROUP BY WAREHOUSE_NAME ORDER BY CREDITS_USED DESC",
+            {"days": days},
         )
