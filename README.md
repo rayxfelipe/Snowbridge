@@ -1,8 +1,8 @@
 # Snowbridge
 
 > **Work in progress:** Snowbridge is an early MVP under active development.
-> The mock backend is suitable for local API testing, but the planned Azure
-> architecture and real Snowflake integration are not yet production-ready.
+> The mock backend is suitable for local demonstrations and API testing, but the
+> planned Azure architecture and real Snowflake integration are not yet production-ready.
 
 Snowbridge is a Python HTTP service that gives Azure Data Factory, Microsoft
 Fabric, Logic Apps, and other orchestrators one stable interface for controlled
@@ -63,6 +63,7 @@ by persistent, asynchronous processing.
 
 ## Current API
 
+- `GET /`: business-friendly interface for the governed AI workflow.
 - `GET /health`: application health and selected backend.
 - `GET /v1/snowflake/health`: adapter connectivity check.
 - `POST /v1/jobs`: execute an approved operation.
@@ -70,7 +71,7 @@ by persistent, asynchronous processing.
 - `GET /v1/ai/operations`: list operations available to the AI planner.
 - `POST /v1/ai/plan`: translate natural language into a structured operation plan.
 - `POST /v1/ai/execute`: execute a validated plan after explicit confirmation.
-- `GET /docs`: interactive OpenAPI documentation.
+- `GET /docs`: interactive Swagger/OpenAPI documentation for technical reviews.
 
 The MVP supports three allowlisted operations:
 
@@ -80,6 +81,21 @@ The MVP supports three allowlisted operations:
 
 Jobs execute synchronously in this first slice but use a job-shaped contract so
 queue-backed asynchronous execution can be added without changing callers.
+
+## Business Demo
+
+The root page provides a same-origin interface for business users while keeping
+Swagger available at `/docs` for technical reviewers. It makes the governance
+boundary visible without requiring users to construct API payloads manually:
+
+1. Enter a business question in natural language.
+2. Review the allowlisted operation, parameters, and planner explanation.
+3. Explicitly approve the plan before execution.
+4. Review the structured Snowflake result.
+
+The interface clearly identifies the default environment as mock Snowflake data.
+AI interprets intent, but deterministic application code validates and executes
+only operations defined in the catalog. The UI never submits arbitrary SQL.
 
 ## Local Development
 
@@ -91,7 +107,10 @@ uv sync --extra dev
 uv run uvicorn snowbridge.main:app --reload
 ```
 
-Open <http://127.0.0.1:8000/docs> to exercise the API.
+Open <http://127.0.0.1:8000/> for the business demo. Try a request such as
+`Show warehouse usage for the last 7 days`, review the generated plan, and then
+select **Approve and execute**. Open <http://127.0.0.1:8000/docs> to exercise the
+same API through Swagger.
 
 Submit a mock operation:
 
@@ -212,10 +231,17 @@ backend changes.
 
 ```text
 src/snowbridge/
+|-- ai/
+|   |-- catalog.py
+|   |-- factory.py
+|   |-- foundry_client.py
+|   `-- mock_client.py
 |-- config.py
 |-- jobs.py
 |-- main.py
 |-- models.py
+|-- static/
+|   `-- index.html
 `-- snowflake/
 	|-- client.py
 	|-- factory.py
