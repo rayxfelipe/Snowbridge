@@ -1,7 +1,8 @@
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from snowbridge.ai.catalog import OPERATION_CATALOG, validate_plan
 from snowbridge.ai.client import AiPlannerError
@@ -25,6 +26,7 @@ from snowbridge.snowflake.client import (
 from snowbridge.snowflake.factory import create_snowflake_client
 
 logger = logging.getLogger(__name__)
+UI_PATH = Path(__file__).parent / "static" / "index.html"
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -38,6 +40,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.snowflake_client = create_snowflake_client(app_settings)
     app.state.ai_planner = create_ai_planner(app_settings)
     app.state.job_store = JobStore()
+
+    @app.get("/", include_in_schema=False)
+    def business_ui() -> FileResponse:
+        return FileResponse(UI_PATH)
 
     @app.exception_handler(InvalidOperationParametersError)
     async def invalid_parameters_handler(

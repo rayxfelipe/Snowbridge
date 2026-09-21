@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Snowbridge | Governed Snowflake Operations</title>
+  <script>
+    (() => {
+      const param = new URLSearchParams(window.location.search).get("scoutTheme");
+      const theme =
+        param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light;
+      --cp-bg: #f7f4ef;
+      --cp-bg-elevated: #fcfbf8;
+      --cp-surface: #ffffff;
+      --cp-surface-soft: #f5f5f5;
+      --cp-border: #dedede;
+      --cp-border-strong: #919191;
+      --cp-text: #242424;
+      --cp-text-muted: #5c5c5c;
+      --cp-text-soft: #6f6f6f;
+      --cp-accent: #b11f4b;
+      --cp-accent-hover: #9a1a41;
+      --cp-accent-soft: rgba(177, 31, 75, 0.08);
+      --cp-accent-fg: #ffffff;
+      --cp-success: #16a34a;
+      --cp-danger: #dc2626;
+      --cp-warning: #f59e0b;
+      --cp-link: #0078d4;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.12);
+      --cp-overlay: rgba(255, 255, 255, 0.8);
+      --cp-panel: rgba(255, 255, 255, 0.86);
+      --cp-panel-strong: rgba(255, 255, 255, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.55);
+      --cp-highlight: rgba(177, 31, 75, 0.12);
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --cp-bg: #3d3b3a;
+      --cp-bg-elevated: #343231;
+      --cp-surface: #292929;
+      --cp-surface-soft: #2e2e2e;
+      --cp-border: #474747;
+      --cp-border-strong: #5f5f5f;
+      --cp-text: #dedede;
+      --cp-text-muted: #919191;
+      --cp-text-soft: #b0b0b0;
+      --cp-accent: #fd8ea1;
+      --cp-accent-hover: #fb7b91;
+      --cp-accent-soft: rgba(253, 142, 161, 0.14);
+      --cp-accent-fg: #1a1a1a;
+      --cp-success: #4ade80;
+      --cp-danger: #f87171;
+      --cp-warning: #fbbf24;
+      --cp-link: #4da6ff;
+      --cp-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --cp-overlay: rgba(41, 41, 41, 0.88);
+      --cp-panel: rgba(41, 41, 41, 0.72);
+      --cp-panel-strong: rgba(41, 41, 41, 0.96);
+      --cp-sheen: rgba(255, 255, 255, 0.04);
+      --cp-highlight: rgba(253, 142, 161, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--cp-bg);
+      color: var(--cp-text);
+      font-family: "Segoe UI", Aptos, Calibri, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    button, textarea { font: inherit; }
+    .shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+    header {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      border-bottom: 1px solid var(--cp-border);
+      background: var(--cp-bg-elevated);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 18px; }
+    .mark {
+      width: 32px; height: 32px; display: grid; place-items: center;
+      background: var(--cp-accent); color: var(--cp-accent-fg); border-radius: 8px;
+      font-weight: 800;
+    }
+    .header-actions { display: flex; align-items: center; gap: 20px; }
+    .status { display: flex; align-items: center; gap: 8px; color: var(--cp-text-muted); font-size: 13px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cp-success); }
+    a { color: var(--cp-link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 40px 0 64px; }
+    .intro { display: flex; justify-content: space-between; gap: 32px; align-items: end; margin-bottom: 28px; }
+    h1 { margin: 0 0 8px; font-size: clamp(28px, 4vw, 44px); line-height: 1.08; letter-spacing: 0; }
+    .subtitle { margin: 0; color: var(--cp-text-muted); font-size: 17px; max-width: 690px; line-height: 1.55; }
+    .demo-pill {
+      flex: 0 0 auto; padding: 7px 10px; border: 1px solid var(--cp-warning);
+      border-radius: 8px; color: var(--cp-text); font-size: 12px; font-weight: 650;
+    }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); gap: 20px; align-items: start; }
+    .panel {
+      background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 8px;
+      box-shadow: 0 0 2px var(--cp-border), 0 1px 2px var(--cp-border); overflow: hidden;
+    }
+    .panel-head { padding: 20px 22px 16px; border-bottom: 1px solid var(--cp-border); }
+    .eyebrow { margin: 0 0 4px; color: var(--cp-accent); font-size: 12px; font-weight: 750; text-transform: uppercase; }
+    h2 { margin: 0; font-size: 19px; letter-spacing: 0; }
+    .panel-body { padding: 22px; }
+    label { display: block; margin-bottom: 8px; font-weight: 650; font-size: 14px; }
+    textarea {
+      width: 100%; min-height: 132px; resize: vertical; border: 1px solid var(--cp-border-strong);
+      border-radius: 8px; padding: 14px; color: var(--cp-text); background: var(--cp-bg-elevated);
+      line-height: 1.5; outline: none;
+    }
+    textarea:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px var(--cp-accent-soft); }
+    .examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 20px; }
+    .example {
+      border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface-soft);
+      color: var(--cp-text); padding: 7px 10px; cursor: pointer; font-size: 12px;
+    }
+    .example:hover { border-color: var(--cp-accent); background: var(--cp-accent-soft); }
+    .actions { display: flex; gap: 10px; align-items: center; }
+    .button {
+      min-height: 42px; border: 1px solid transparent; border-radius: 8px; padding: 0 16px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+      font-weight: 700;
+    }
+    .button-primary { background: var(--cp-accent); color: var(--cp-accent-fg); }
+    .button-primary:hover { background: var(--cp-accent-hover); }
+    .button-secondary { background: var(--cp-surface); color: var(--cp-text); border-color: var(--cp-border-strong); }
+    .button:disabled { opacity: .48; cursor: not-allowed; }
+    .spinner {
+      width: 16px; height: 16px; border: 2px solid var(--cp-accent-fg); border-right-color: transparent;
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .step-list { display: grid; gap: 12px; }
+    .step { display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; }
+    .step-number {
+      width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%;
+      border: 1px solid var(--cp-border); color: var(--cp-text-muted); font-size: 12px; font-weight: 800;
+    }
+    .step.active .step-number { background: var(--cp-accent); border-color: var(--cp-accent); color: var(--cp-accent-fg); }
+    .step.done .step-number { background: var(--cp-success); border-color: var(--cp-success); color: var(--cp-accent-fg); }
+    .step-title { margin: 3px 0 2px; font-weight: 700; font-size: 14px; }
+    .step-copy { color: var(--cp-text-muted); font-size: 12px; line-height: 1.4; }
+    .output { margin-top: 20px; }
+    .empty {
+      min-height: 190px; display: grid; place-items: center; text-align: center; padding: 24px;
+      color: var(--cp-text-muted); border: 1px dashed var(--cp-border-strong); border-radius: 8px;
+    }
+    .plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .datum { padding: 12px; background: var(--cp-surface-soft); border-radius: 8px; }
+    .datum-label { color: var(--cp-text-muted); font-size: 11px; margin-bottom: 4px; text-transform: uppercase; }
+    .datum-value { font-weight: 700; overflow-wrap: anywhere; }
+    .plan-explanation { margin: 14px 0 18px; color: var(--cp-text-muted); line-height: 1.5; }
+    .notice { padding: 12px; border-left: 3px solid var(--cp-warning); background: var(--cp-surface-soft); line-height: 1.45; }
+    .notice.error { border-color: var(--cp-danger); }
+    .notice.success { border-color: var(--cp-success); }
+    .results { margin-top: 20px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--cp-border); border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--cp-border); white-space: nowrap; }
+    th { background: var(--cp-surface-soft); color: var(--cp-text-muted); font-size: 11px; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+    .result-meta { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 10px; color: var(--cp-text-muted); font-size: 12px; }
+    .hidden { display: none !important; }
+    @media (max-width: 820px) {
+      header { padding: 0 20px; }
+      .status { display: none; }
+      main { width: min(100% - 24px, 680px); padding-top: 28px; }
+      .intro { display: block; }
+      .demo-pill { display: inline-block; margin-top: 16px; }
+      .workspace { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><span class="mark">S</span><span>Snowbridge</span></div>
+      <div class="header-actions">
+        <span class="status"><span class="status-dot"></span>Service available</span>
+        <a href="/docs" target="_blank" rel="noreferrer">API documentation</a>
+      </div>
+    </header>
+    <main>
+      <section class="intro">
+        <div>
+          <h1>Ask Snowflake, safely.</h1>
+          <p class="subtitle">Turn business questions into governed operations, review what will run, and approve execution before data is accessed.</p>
+        </div>
+        <span class="demo-pill">Demo environment · Mock Snowflake data</span>
+      </section>
+
+      <div class="workspace">
+        <section class="panel">
+          <div class="panel-head">
+            <p class="eyebrow">Business question</p>
+            <h2>What would you like to know?</h2>
+          </div>
+          <div class="panel-body">
+            <label for="request">Describe your request in plain language</label>
+            <textarea id="request">Show warehouse usage for the last 7 days</textarea>
+            <div class="examples" aria-label="Example questions">
+              <button class="example" data-prompt="Show warehouse usage for the last 7 days">7-day usage</button>
+              <button class="example" data-prompt="Show warehouse usage for the last 30 days">30-day usage</button>
+              <button class="example" data-prompt="What is the current Snowflake context?">Current context</button>
+              <button class="example" data-prompt="Echo hello from the customer demo">Connectivity test</button>
+            </div>
+            <div class="actions">
+              <button id="planButton" class="button button-primary">Create governed plan</button>
+              <button id="resetButton" class="button button-secondary hidden">Start over</button>
+            </div>
+
+            <div id="output" class="output">
+              <div id="emptyState" class="empty">Your reviewed operation will appear here before anything executes.</div>
+              <div id="notice" class="notice hidden" role="alert"></div>
+              <div id="planView" class="hidden">
+                <div class="plan-grid">
+                  <div class="datum"><div class="datum-label">Approved operation</div><div id="operation" class="datum-value"></div></div>
+                  <div class="datum"><div class="datum-label">Parameters</div><div id="parameters" class="datum-value"></div></div>
+                </div>
+                <p id="explanation" class="plan-explanation"></p>
+                <button id="executeButton" class="button button-primary">Approve and execute</button>
+              </div>
+              <div id="resultsView" class="results hidden">
+                <div class="result-meta"><strong>Execution result</strong><span id="rowCount"></span></div>
+                <div class="table-wrap"><table><thead id="resultHead"></thead><tbody id="resultBody"></tbody></table></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel">
+          <div class="panel-head">
+            <p class="eyebrow">Governed workflow</p>
+            <h2>Human approval stays in control</h2>
+          </div>
+          <div class="panel-body">
+            <div class="step-list">
+              <div id="step1" class="step active"><span class="step-number">1</span><div><div class="step-title">Ask</div><div class="step-copy">State the business need without writing SQL.</div></div></div>
+              <div id="step2" class="step"><span class="step-number">2</span><div><div class="step-title">Review</div><div class="step-copy">AI selects only from approved operations and parameters.</div></div></div>
+              <div id="step3" class="step"><span class="step-number">3</span><div><div class="step-title">Approve</div><div class="step-copy">Nothing executes until you explicitly confirm the plan.</div></div></div>
+              <div id="step4" class="step"><span class="step-number">4</span><div><div class="step-title">Use the result</div><div class="step-copy">Receive structured data ready for downstream workflows.</div></div></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <script>
+    const requestInput = document.querySelector("#request");
+    const planButton = document.querySelector("#planButton");
+    const executeButton = document.querySelector("#executeButton");
+    const resetButton = document.querySelector("#resetButton");
+    const emptyState = document.querySelector("#emptyState");
+    const notice = document.querySelector("#notice");
+    const planView = document.querySelector("#planView");
+    const resultsView = document.querySelector("#resultsView");
+    let currentPlan = null;
+
+    document.querySelectorAll(".example").forEach((button) => {
+      button.addEventListener("click", () => { requestInput.value = button.dataset.prompt; requestInput.focus(); });
+    });
+
+    function setBusy(button, busy, label) {
+      button.disabled = busy;
+      button.innerHTML = busy ? `<span class="spinner"></span>${label}` : label;
+    }
+
+    function setSteps(active) {
+      for (let index = 1; index <= 4; index += 1) {
+        const step = document.querySelector(`#step${index}`);
+        step.classList.toggle("done", index < active);
+        step.classList.toggle("active", index === active);
+        step.querySelector(".step-number").textContent = index < active ? "✓" : String(index);
+      }
+    }
+
+    function showNotice(message, kind = "") {
+      notice.textContent = message;
+      notice.className = `notice ${kind}`.trim();
+      emptyState.classList.add("hidden");
+    }
+
+    function reset() {
+      currentPlan = null;
+      notice.classList.add("hidden");
+      planView.classList.add("hidden");
+      resultsView.classList.add("hidden");
+      emptyState.classList.remove("hidden");
+      resetButton.classList.add("hidden");
+      setSteps(1);
+    }
+
+    async function apiRequest(path, body) {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || "The request could not be completed.");
+      return payload;
+    }
+
+    planButton.addEventListener("click", async () => {
+      const request = requestInput.value.trim();
+      if (request.length < 3) { showNotice("Enter a business question before creating a plan.", "error"); return; }
+      reset();
+      setBusy(planButton, true, "Creating plan");
+      setSteps(2);
+      try {
+        currentPlan = await apiRequest("/v1/ai/plan", { request });
+        if (currentPlan.status === "needs_clarification") {
+          showNotice(currentPlan.clarification_question || "More information is needed.");
+          setSteps(1);
+          return;
+        }
+        if (currentPlan.status === "rejected") {
+          showNotice(currentPlan.explanation, "error");
+          setSteps(1);
+          return;
+        }
+        document.querySelector("#operation").textContent = currentPlan.operation.replaceAll("_", " ");
+        document.querySelector("#parameters").textContent = Object.entries(currentPlan.parameters)
+          .map(([key, value]) => `${key}: ${value}`).join(", ") || "None";
+        document.querySelector("#explanation").textContent = currentPlan.explanation;
+        emptyState.classList.add("hidden");
+        notice.classList.add("hidden");
+        planView.classList.remove("hidden");
+        resetButton.classList.remove("hidden");
+        setSteps(3);
+      } catch (error) {
+        showNotice(error.message, "error");
+        setSteps(1);
+      } finally {
+        setBusy(planButton, false, "Create governed plan");
+      }
+    });
+
+    executeButton.addEventListener("click", async () => {
+      if (!currentPlan) return;
+      setBusy(executeButton, true, "Executing");
+      try {
+        const job = await apiRequest("/v1/ai/execute", {
+          plan: currentPlan,
+          confirmed: true,
+          idempotency_key: `demo-${crypto.randomUUID()}`,
+        });
+        const result = job.result;
+        const columns = result?.columns || [];
+        const rows = result?.rows || [];
+        document.querySelector("#resultHead").innerHTML = `<tr>${columns.map((column) => `<th>${escapeHtml(column.replaceAll("_", " "))}</th>`).join("")}</tr>`;
+        document.querySelector("#resultBody").innerHTML = rows.map((row) => `<tr>${columns.map((column) => `<td>${escapeHtml(String(row[column] ?? ""))}</td>`).join("")}</tr>`).join("");
+        document.querySelector("#rowCount").textContent = `${result?.row_count ?? 0} rows`;
+        resultsView.classList.remove("hidden");
+        showNotice("Approved operation completed successfully.", "success");
+        planView.classList.add("hidden");
+        setSteps(4);
+      } catch (error) {
+        showNotice(error.message, "error");
+        setSteps(3);
+      } finally {
+        setBusy(executeButton, false, "Approve and execute");
+      }
+    });
+
+    resetButton.addEventListener("click", reset);
+    function escapeHtml(value) {
+      const element = document.createElement("span");
+      element.textContent = value;
+      return element.innerHTML;
+    }
+  </script>
+</body>
+</html>

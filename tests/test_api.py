@@ -11,6 +11,18 @@ def build_client() -> TestClient:
     return TestClient(create_app(Settings(snowflake_backend="mock")))
 
 
+def test_business_ui_is_available_without_replacing_swagger() -> None:
+    client = build_client()
+
+    ui_response = client.get("/")
+    docs_response = client.get("/docs")
+
+    assert ui_response.status_code == 200
+    assert "Ask Snowflake, safely." in ui_response.text
+    assert docs_response.status_code == 200
+    assert "Swagger UI" in docs_response.text
+
+
 def test_health_reports_mock_backend() -> None:
     response = build_client().get("/health")
 
