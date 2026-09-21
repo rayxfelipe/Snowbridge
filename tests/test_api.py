@@ -1,5 +1,8 @@
+from types import SimpleNamespace
+
 from fastapi.testclient import TestClient
 
+from snowbridge.ai.foundry_client import FoundryAiPlanner, _FoundryPlanResponse
 from snowbridge.config import Settings
 from snowbridge.main import create_app
 
@@ -95,6 +98,35 @@ def test_ai_plans_warehouse_usage_from_natural_language() -> None:
         "explanation": "Summarize recent Snowflake warehouse usage.",
         "clarification_question": None,
     }
+
+
+def test_foundry_planner_uses_strict_schema_and_removes_null_parameters() -> None:
+    parsed = _FoundryPlanResponse.model_validate(
+        {
+            "status": "ready",
+            "operation": "warehouse_usage_summary",
+            "parameters": {"message": None, "days": 7},
+            "explanation": "Summarize recent Snowflake warehouse usage.",
+            "clarification_question": None,
+        }
+    )
+
+    class FakeCompletions:
+        def parse(self, **kwargs: object) -> SimpleNamespace:
+            assert kwargs["response_format"] is _FoundryPlanResponse
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(parsed=parsed))]
+            )
+
+    planner = FoundryAiPlanner.__new__(FoundryAiPlanner)
+    planner._client = SimpleNamespace(
+        beta=SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+    )
+    planner._deployment = "test-deployment"
+
+    plan = planner.plan("Show warehouse usage for 7 days")
+
+    assert plan.parameters == {"days": 7}
 
 
 def test_ai_requests_missing_time_range() -> None:

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "snowbridge-dev-624a"
+    },
+    "location": {
+      "value": "eastus2"
+    },
+    "sessionId": {
+      "value": "624ab0bf-df97-4e7a-8870-167955d4d565"
+    },
+    "deployedBy": {
+      "value": "Ray Felipe"
+    },
+    "createdAt": {
+      "value": "2026-09-21T10:16:32.5023683-07:00"
+    },
+    "deployerObjectId": {
+      "value": ""
+    }
+  }
+}
