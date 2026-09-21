@@ -1,6 +1,6 @@
 # Azure Deployment Plan
 
-> **Status:** Validated
+> **Status:** Deployed
 
 Generated: 2026-09-21
 
@@ -113,10 +113,11 @@ This update deploys a new image revision to existing resources and provisions no
 - [x] Record validation proof below
 
 ### Phase 4: Deployment
-- [ ] Invoke azure-deploy skill
-- [ ] Deployment successful
-- [ ] Verify `/`, `/docs`, `/health`, AI plan, and confirmed execution
-- [ ] Update plan status to Deployed
+- [x] Invoke azure-deploy skill
+- [x] Deployment successful
+- [x] Verify `/`, `/docs`, `/health`, AI plan, and confirmed execution
+- [x] Verify live ACR, Key Vault, and Foundry role assignments
+- [x] Update plan status to Deployed
 
 ---
 
@@ -133,6 +134,11 @@ This update deploys a new image revision to existing resources and provisions no
 | Image build | `az acr build ... snowbridge:git-19d40df-fix1` | Pass: digest `sha256:a8e81d4d...` | 2026-09-21 |
 | Static RBAC | Review `role-assignments.bicep` and `foundry-role-assignment.bicep` | Pass: resource-scoped AcrPull, Key Vault Secrets User, Cognitive Services OpenAI User | 2026-09-21 |
 | Error resolution | Removed redundant Hatch `force-include`; reran ACR build, tests, and lint | Pass: duplicate wheel entry resolved | 2026-09-21 |
+| Bicep deployment | `az deployment sub create --name snowbridge-ui-d498a2e ...` | Pass: Succeeded | 2026-09-21 |
+| Container revision | `az containerapp show` and `revision list` | Pass: revision `0000003`, healthy, 100% traffic | 2026-09-21 |
+| Public endpoints | Requests to `/`, `/docs`, and `/health` | Pass: HTTP 200; UI and Swagger present | 2026-09-21 |
+| Public AI workflow | `POST /v1/ai/plan` and `POST /v1/ai/execute` | Pass: ready plan, succeeded job, 2 rows | 2026-09-21 |
+| Live RBAC | `az role assignment list` at each resource scope | Pass: AcrPull, Key Vault Secrets User, Cognitive Services OpenAI User | 2026-09-21 |
 
 **Validated by:** azure-validate skill
 **Validation timestamp:** 2026-09-21
@@ -159,7 +165,7 @@ This update deploys a new image revision to existing resources and provisions no
 
 ## 9. Next Steps
 
-> Current: Validated; ready for deployment
+> Current: Deployed and verified
 
 1. Verify subscription context, existing resources, and update capacity.
 2. Validate application and Bicep.
